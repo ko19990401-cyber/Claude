@@ -1,0 +1,52 @@
+# Fly.io 用の設定。
+#   fly launch --no-deploy --copy-config     # アプリを作る（app 名は書き換える）
+#   fly volumes create data --size 10 --region nrt
+#   fly secrets set ELEVENLABS_API_KEY=... ANTHROPIC_API_KEY=... AUTH_USER=... AUTH_PASSWORD=...
+#   fly deploy
+app = "koe-note"
+primary_region = "nrt"          # 東京
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8787"
+  HOST = "0.0.0.0"
+  DATA_DIR = "/data"
+  ASR_PROVIDER = "elevenlabs"
+  ASR_LANGUAGE = "ja"
+  SUMMARY_MODEL = "claude-opus-5"
+  SUMMARY_EFFORT = "medium"
+  USD_JPY = "150"
+  # 認証が未設定のままでは起動させない（公開前提のため）
+  REQUIRE_AUTH = "true"
+
+# 音声・文字起こし・要約の保存先。1時間の音声で約10MB。
+[mounts]
+  source = "data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # 文字起こしは数分かかる。停止しているとSSEの再接続が遅れるため止めない。
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 40
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  # ffmpeg の変換と階層要約の並列実行に少し余裕を持たせる
+  memory = "1gb"

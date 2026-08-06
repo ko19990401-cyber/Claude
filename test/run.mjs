@@ -39,6 +39,12 @@ const SUITES = [
     },
   },
   {
+    name: 'deploy',
+    file: 'test/deploy.test.mjs',
+    needsFfmpeg: false,
+    env: { DATA_DIR: './.test-data/deploy', PORT: '8794' },
+  },
+  {
     name: 'ui',
     file: 'test/ui.test.mjs',
     needsFfmpeg: true,

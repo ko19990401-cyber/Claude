@@ -114,7 +114,9 @@ export function renderResult(root, ctx, data) {
   // --- プレイヤー（FR-06：セグメントクリックで該当時刻から再生）---------
   const playButton = el('button', { class: 'play', onclick: () => (audio.paused ? audio.play() : audio.pause()) }, '▶');
   const seekBar = el('input', { type: 'range', min: '0', max: '1000', value: '0', step: '1' });
-  const timeLabel = el('span', { class: 't' }, '00:00:00 / 00:00:00');
+  const timeCurrent = el('span', { class: 'cur' }, '00:00:00');
+  const timeTotal = el('span', { class: 'tot' }, ' / 00:00:00');
+  const timeLabel = el('span', { class: 't' }, timeCurrent, timeTotal);
   const rateSelect = el('select', {
     class: 'select',
     onchange: (e) => { audio.playbackRate = Number(e.target.value); },
@@ -132,11 +134,13 @@ export function renderResult(root, ctx, data) {
   audio.addEventListener('timeupdate', () => {
     const duration = audio.duration || state.job.source.durationSec || 0;
     if (!seeking && duration) seekBar.value = String(Math.round((audio.currentTime / duration) * 1000));
-    timeLabel.textContent = `${formatTime(audio.currentTime)} / ${formatTime(duration)}`;
+    timeCurrent.textContent = formatTime(audio.currentTime);
+    timeTotal.textContent = ` / ${formatTime(duration)}`;
   });
   audio.addEventListener('error', () => {
     playButton.disabled = true;
-    timeLabel.textContent = '音声を読み込めません';
+    timeCurrent.textContent = '音声を読み込めません';
+    timeTotal.textContent = '';
   });
 
   const player = el('div', { class: 'player' },
@@ -144,8 +148,8 @@ export function renderResult(root, ctx, data) {
     playButton,
     seekBar,
     timeLabel,
-    el('button', { class: 'btn btn-sm', title: '10秒戻る', onclick: () => { audio.currentTime = Math.max(0, audio.currentTime - 10); } }, '⟲10'),
-    el('button', { class: 'btn btn-sm', title: '10秒進む', onclick: () => { audio.currentTime += 10; } }, '10⟳'),
+    el('button', { class: 'btn btn-sm skip', title: '10秒戻る', onclick: () => { audio.currentTime = Math.max(0, audio.currentTime - 10); } }, '⟲10'),
+    el('button', { class: 'btn btn-sm skip', title: '10秒進む', onclick: () => { audio.currentTime += 10; } }, '10⟳'),
     rateSelect);
 
   setChildren(root,

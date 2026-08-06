@@ -4,7 +4,8 @@
 （議事録・復命書・要点抽出など）へ切り替えられるローカルWebアプリです。
 
 仕様書 v1.0 に基づく実装で、Phase 1〜4（MVP／話者と要約／長時間対応／体験の作り込み）まで
-を含みます。
+を含みます。ローカル起動のほか、コンテナ1台でクラウドに置いてスマートフォンから
+使うこともできます（§2.5）。
 
 ```
 ブラウザ（素のHTML/CSS/JS・ビルド不要）
@@ -102,6 +103,76 @@ APIキーは `.env` にのみ置かれ、フロントエンドへは一切渡り
 
 ---
 
+## 2.5 スマートフォンから使う（クラウド配置）
+
+フロントとAPIを1プロセスで配信する構成なので、**コンテナ1台をどこかに置けば
+そのままスマホのブラウザから使えます**。ffmpeg 同梱の `Dockerfile` を用意しています。
+
+### 公開する前に
+
+- **Basic認証を必ず設定してください。** `AUTH_USER` と `AUTH_PASSWORD` の両方を
+  設定すると、画面・API・SSE・音声配信のすべてに認証がかかります。
+  `REQUIRE_AUTH=true` にしておくと、認証が未設定のままではサーバが起動しません
+  （各デプロイ設定では既定で有効にしてあります）。
+- **HTTPSが前提です。** Basic認証は資格情報を平文で送ります。Fly.io / Render は
+  HTTPSが自動で付きます。自前のVPSではリバースプロキシで終端してください。
+- 音声・文字起こし・要約はサーバのディスクに残ります。**業務上の機微な音声は
+  取り扱わない**という運用ルールは、クラウドに置く場合はより重要になります。
+
+### Fly.io（推奨）
+
+永続ボリュームが使えて東京リージョンがあります。
+
+```bash
+fly launch --no-deploy --copy-config      # fly.toml の app 名を自分のものへ書き換える
+fly volumes create data --size 10 --region nrt
+fly secrets set \
+  ELEVENLABS_API_KEY=... \
+  ANTHROPIC_API_KEY=... \
+  AUTH_USER=yourname \
+  AUTH_PASSWORD='長めのパスフレーズ'
+fly deploy
+fly open
+```
+
+ボリューム10GBは、前処理後の音声（1時間あたり約10MB）で約1,000時間分に相当します。
+
+### Render
+
+`render.yaml` を Blueprint として読み込み、ダッシュボードで `AUTH_USER` /
+`AUTH_PASSWORD` / 各APIキーを入力します。永続ディスクは有料プランが必要です。
+
+### VPS・自宅サーバ（Docker Compose）
+
+```bash
+cp .env.example .env    # APIキーと AUTH_USER / AUTH_PASSWORD を記入
+docker compose up -d --build
+```
+
+前段に HTTPS を終端するリバースプロキシ（Caddy / Nginx + Let's Encrypt /
+Cloudflare Tunnel など）を置いてください。
+
+### ホーム画面に追加する
+
+PWAマニフェストとアイコンを同梱しています。iOS Safari は「共有 → ホーム画面に追加」、
+Android Chrome は「アプリをインストール」で、単独アプリのように起動できます。
+アイコンを変えたい場合は `tools/make-icons.mjs` を編集して `node tools/make-icons.mjs`
+を実行してください。
+
+なお **iOS では、ホーム画面に追加したときだけ完了通知（Notification API）が届きます**。
+ブラウザのタブから開いている間は通知が出ません。
+
+### スマホで使う際の注意
+
+- **アップロードは回線速度に依存します。** 1時間の録音は元ファイルで数十〜数百MBに
+  なるため、モバイル回線ではWi-Fiより時間がかかります（前処理による圧縮はサーバ側で
+  行うため、送信するのは元ファイルです）。
+- アップロード中は画面を閉じないでください。送信が終わったあとの前処理・文字起こしは
+  サーバ側で継続するので、画面を閉じても問題ありません。
+- 画面をロックするとSSEの接続は切れますが、再度開くと進捗の履歴から復元します。
+
+---
+
 ## 3. 設定（.env）
 
 | 変数 | 既定値 | 内容 |
@@ -112,7 +183,10 @@ APIキーは `.env` にのみ置かれ、フロントエンドへは一切渡り
 | `ANTHROPIC_API_KEY` | — | 要約に使用 |
 | `SUMMARY_MODEL` | `claude-opus-5` | 既定の要約モデル。画面から切替可 |
 | `SUMMARY_EFFORT` | `medium` | 思考の深さ。`low` ほど安価・高速 |
+| `AUTH_USER` / `AUTH_PASSWORD` | — | 両方設定すると全体にBasic認証がかかる |
+| `REQUIRE_AUTH` | — | `true` で、認証未設定なら起動を拒否する |
 | `PORT` | `8787` | サーバのポート |
+| `HOST` | `127.0.0.1` | コンテナ等で外部から接続するなら `0.0.0.0` |
 | `DATA_DIR` | `./data` | 音声・結果の保存先 |
 | `USD_JPY` | `150` | コスト表示の換算レート |
 | `HIERARCHICAL_THRESHOLD` | `120000` | この文字数を超えたら階層要約に切り替える |
@@ -255,6 +329,7 @@ data/
 | `GET` | `/api/presets` | 要約プリセット一覧 |
 | `POST` | `/api/estimate` | 音声長からコスト・所要時間を試算 |
 | `GET` | `/api/system` | 起動時チェックの結果（ffmpeg・APIキー・モデル一覧） |
+| `GET` | `/api/health` | 死活監視用（**認証不要**。ホスティングのヘルスチェック向け） |
 
 ---
 
@@ -273,6 +348,7 @@ npm test pipeline     # 個別スイート（pipeline / chunking / summarize / u
 | `pipeline` | アップロード → 前処理 → 文字起こし → 辞書 → 編集 → 出力 → 削除 |
 | `chunking` | 無音検出・分割計画・切り出し・重複除去・話者ラベル対応付け |
 | `summarize` | ストリーミング・プロンプトキャッシュ・階層要約・中間要約の再利用 |
+| `deploy` | Basic認証の適用範囲、ヘルスチェック、PWAアイコンの配信 |
 | `ui` | 実ブラウザ操作（仮想スクロール・検索・リネーム・編集・シーク・要約表示） |
 
 `ui` は Playwright が必要です（`npm i -D playwright && npx playwright install chromium`）。
@@ -285,7 +361,8 @@ npm test pipeline     # 個別スイート（pipeline / chunking / summarize / u
 - 送信先のASR/LLMベンダーの学習利用ポリシーを確認し、必要ならオプトアウトを設定してください。
 - **業務上の機微な音声は取り扱わない**ことを運用ルールとしてください。
 - 外部APIを前提とするため、閉域網（LGWAN等）では動作しません。
-- 対応ブラウザは最新の Chrome / Edge / Safari です。
+- 対応ブラウザは最新の Chrome / Edge / Safari（デスクトップ・モバイルとも）です。
+- 公開する場合は Basic認証とHTTPSを必ず有効にしてください（§2.5）。
 
 ---
 
@@ -296,4 +373,5 @@ npm test pipeline     # 個別スイート（pipeline / chunking / summarize / u
 2. **フィラーの扱い** — 現状は要約時に除去。逐語記録が必要な場面向けにトグルを設ける余地があります。
 3. **話者識別（実名の自動割当）** — 現状は手動リネーム。話者プロファイル保存＋前回の
    割当を候補提示する機能はv2向け。
-4. **クラウド配置** — Cloudflare Workers + R2 への移行時は認証（最低限Basic認証）が必須です。
+4. **クラウド配置** — コンテナ1台での配置に対応済み（§2.5）。Basic認証は実装しましたが、
+   複数人で使うならアカウント管理のある認証へ置き換える必要があります。

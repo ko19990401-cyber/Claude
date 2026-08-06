@@ -22,9 +22,11 @@ export function renderTranscript(root, rc) {
   const prevButton = el('button', { class: 'btn btn-sm', disabled: true, onclick: () => jumpHit(-1) }, '↑');
   const nextButton = el('button', { class: 'btn btn-sm', disabled: true, onclick: () => jumpHit(1) }, '↓');
 
+  const searchNav = el('div', { class: 'search-nav', style: 'display:none' }, hitLabel, prevButton, nextButton);
+
   const toolbar = el('div', { class: 'toolbar' },
     el('div', { class: 'search' }, el('span', { class: 'glass' }, '🔍'), searchInput),
-    el('div', { class: 'search-nav' }, hitLabel, prevButton, nextButton),
+    searchNav,
     toggle('タイムスタンプ', options.timestamps, (v) => { options.timestamps = v; list.setItems(rc.segments); }),
     toggle('話者色分け', options.colors, (v) => {
       options.colors = v;
@@ -158,6 +160,7 @@ export function renderTranscript(root, rc) {
     if (!keepIndex) hitIndex = 0;
     hitLabel.textContent = query ? (hits.length ? `${Math.min(hitIndex + 1, hits.length)} / ${hits.length}件` : '0件') : '';
     prevButton.disabled = nextButton.disabled = hits.length === 0;
+    searchNav.style.display = query ? '' : 'none';
     list.updateVisible((node, segment) => paintBody(node.querySelector('.body'), segment.text));
     if (query && hits.length && !keepIndex) list.scrollToIndex(hits[0]);
   }

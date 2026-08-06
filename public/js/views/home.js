@@ -19,15 +19,18 @@ export async function renderHome(root, ctx) {
 
   if (!ctx.system.ready) root.append(setupBanner(ctx.system));
 
+  // スマホにはドラッグ＆ドロップが無いので、タップ操作の案内に切り替える
+  const touch = window.matchMedia('(pointer: coarse)').matches;
   const dropzone = el('div', { class: 'dropzone', id: 'dropzone' },
     el('div', { class: 'icon' }, '🎙️'),
-    el('h2', {}, '音声・動画ファイルをドロップ'),
-    el('p', {}, `クリックして選択もできます　対応形式: ${ctx.system.supportedExtensions.join(' / ')}`),
+    el('h2', {}, touch ? 'タップしてファイルを選択' : '音声・動画ファイルをドロップ'),
+    el('p', {}, `${touch ? '' : 'クリックして選択もできます　'}対応形式: ${ctx.system.supportedExtensions.join(' / ')}`),
     el('p', { class: 'hint', style: 'margin-top:8px' }, 'ファイルサイズ・再生時間の上限はありません'));
 
   const fileInput = el('input', {
     type: 'file',
-    accept: ctx.system.supportedExtensions.join(','),
+    // iOS では拡張子だけの accept で選択できないファイルがあるため MIME も併記する
+    accept: [...ctx.system.supportedExtensions, 'audio/*', 'video/*'].join(','),
     style: 'display:none',
   });
 

@@ -14,6 +14,8 @@ const num = (value, fallback) => {
 
 export const config = {
   port: num(process.env.PORT, 8787),
+  // コンテナで動かすときは 0.0.0.0 で待ち受ける必要がある
+  host: process.env.HOST || '127.0.0.1',
   dataDir: path.resolve(ROOT, process.env.DATA_DIR || './data'),
   publicDir: path.join(ROOT, 'public'),
 
@@ -33,6 +35,14 @@ export const config = {
   summaryEffort: process.env.SUMMARY_EFFORT || 'medium',
 
   usdJpy: num(process.env.USD_JPY, 150),
+
+  // 公開環境で使う簡易認証（§15-4：クラウド配置時は最低限Basic認証が必須）
+  auth: {
+    user: process.env.AUTH_USER || '',
+    password: process.env.AUTH_PASSWORD || '',
+    // true にすると、認証が未設定のままでは起動しない
+    required: /^(1|true|yes)$/i.test(process.env.REQUIRE_AUTH || ''),
+  },
 
   hierarchicalThreshold: num(process.env.HIERARCHICAL_THRESHOLD, 120000),
   chunkChars: num(process.env.CHUNK_CHARS, 20000),

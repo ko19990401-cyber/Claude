@@ -2,6 +2,7 @@ import path from 'node:path';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
+import { basicAuth } from 'hono/basic-auth';
 import { config } from './config.js';
 import { listEngines } from './asr/index.js';
 import { checkFfmpeg } from './lib/ffmpeg.js';
@@ -12,6 +13,17 @@ import { jobsRoute } from './routes/jobs.js';
 import { miscRoute } from './routes/misc.js';
 
 const app = new Hono();
+
+// 死活監視用。認証より前に置き、ホスティング側のヘルスチェックが通るようにする。
+app.get('/api/health', (c) => c.json({ ok: true, uptimeSec: Math.round(process.uptime()) }));
+
+// --- 簡易認証（§15-4）------------------------------------------------------
+// AUTH_USER / AUTH_PASSWORD を設定すると全体に Basic 認証がかかる。
+// EventSource や <audio> はヘッダを自前で付けられないが、Basic 認証なら
+// ブラウザが自動で付与するため、SSEも音声配信もそのまま動く。
+if (config.auth.user && config.auth.password) {
+  app.use('*', basicAuth({ username: config.auth.user, password: config.auth.password }));
+}
 
 app.use('*', async (c, next) => {
   const started = Date.now();
@@ -25,6 +37,10 @@ app.route('/api/jobs', jobsRoute);
 app.route('/api', miscRoute);
 
 app.onError((err, c) => {
+  // Basic認証の401は WWW-Authenticate ヘッダを含む応答をそのまま返す。
+  // ここでJSONに作り替えるとヘッダが落ち、ブラウザが認証ダイアログを出せなくなる。
+  if (typeof err.getResponse === 'function') return err.getResponse();
+
   const status = err.status || 500;
   if (status >= 500) log.error(`${c.req.method} ${c.req.path}:`, err.stack || err.message);
   else log.warn(`${c.req.method} ${c.req.path}: ${err.message}`);
@@ -41,6 +57,13 @@ app.notFound((c) =>
 
 async function main() {
   await ensureDirs();
+
+  const authEnabled = Boolean(config.auth.user && config.auth.password);
+  if (config.auth.required && !authEnabled) {
+    log.error('REQUIRE_AUTH が有効ですが AUTH_USER / AUTH_PASSWORD が未設定です。');
+    log.error('公開環境では認証なしで起動しません。両方を設定してください。');
+    process.exit(1);
+  }
 
   const ffmpeg = await checkFfmpeg();
   const engines = listEngines();
@@ -60,10 +83,16 @@ async function main() {
   if (config.keys.anthropic) log.ok(`要約モデル: ${config.summaryModel}（effort: ${config.summaryEffort}）`);
   else log.warn('ANTHROPIC_API_KEY が未設定です。要約機能は利用できません。');
 
+  if (authEnabled) log.ok(`Basic認証: 有効（ユーザー ${config.auth.user}）`);
+  else if (config.host !== '127.0.0.1' && config.host !== 'localhost') {
+    log.warn('認証なしで外部からの接続を受け付けています。');
+    log.warn('  公開する場合は AUTH_USER / AUTH_PASSWORD を設定してください。');
+  }
+
   const resumed = await resumeJobs();
   if (resumed) log.info(`未完了ジョブ ${resumed} 件を確認しました`);
 
-  serve({ fetch: app.fetch, port: config.port }, ({ port }) => {
+  serve({ fetch: app.fetch, port: config.port, hostname: config.host }, ({ port }) => {
     log.ok(`http://localhost:${port} を開いてください`);
     log.info('─'.repeat(64));
   });

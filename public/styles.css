@@ -157,6 +157,7 @@ a { color: var(--accent); }
   background: var(--bg-sunken);
   color: var(--text-muted);
   border: 1px solid var(--border);
+  white-space: nowrap;
 }
 .badge-warn { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
 .badge-ok { color: var(--success); }
@@ -498,11 +499,13 @@ main.wide { max-width: 1240px; }
   position: sticky;
   bottom: 0;
   z-index: 20;
-  height: var(--player-h);
+  min-height: var(--player-h);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
-  padding: 0 var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  padding-bottom: max(var(--space-2), env(safe-area-inset-bottom));
   margin-top: var(--space-3);
   background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
   backdrop-filter: blur(12px);
@@ -519,7 +522,8 @@ main.wide { max-width: 1240px; }
   flex: none;
 }
 .player .play:hover { background: var(--bg-sunken); }
-.player input[type=range] { flex: 1; accent-color: var(--accent); }
+/* min-width:0 が無いと range の既定幅が下限になり、狭い画面で横スクロールが出る */
+.player input[type=range] { flex: 1 1 120px; min-width: 0; accent-color: var(--accent); }
 .player .t { font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .player select { width: auto; padding: 4px 8px; font-size: 12.5px; }
 
@@ -567,6 +571,7 @@ main.wide { max-width: 1240px; }
 .gen-status {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   font-size: 13px;
   color: var(--text-muted);
@@ -672,8 +677,74 @@ main.wide { max-width: 1240px; }
 .toast.ok { border-left: 3px solid var(--success); }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 
-@media (max-width: 640px) {
+/* =========================================================================
+   スマートフォン
+   ========================================================================= */
+@media (max-width: 720px) {
   main { padding: var(--space-4) var(--space-3); }
-  .segment { grid-template-columns: 88px 1fr; gap: var(--space-2); }
-  .appbar { padding: 0 var(--space-3); }
+  .appbar { padding: 0 var(--space-3); gap: var(--space-2); }
+  .appbar h1 { font-size: 14px; white-space: nowrap; overflow: hidden; }
+  /* ヘッダのボタンはアイコンだけにして横幅を空ける */
+  .appbar .btn .label { display: none; }
+
+  .segment { grid-template-columns: 84px 1fr; gap: var(--space-2); padding: 10px var(--space-3); }
+  .segment .who { font-size: 11.5px; }
+
+  .result-title { font-size: 18px; }
+  .result-sub { gap: var(--space-2); font-size: 12px; }
+  .tabs { gap: 0; }
+  .tab { padding: 9px 12px; }
+  .tabs .btn { padding: 6px 10px; }
+
+  .toolbar { padding: var(--space-2); gap: var(--space-2); }
+  .toolbar .search { min-width: 100%; }
+
+  /* 話者チップは横に流して縦の消費を抑える */
+  .speaker-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .speaker-bar::-webkit-scrollbar { display: none; }
+  .speaker-chip { flex: none; }
+
+  /* 画面が縦に狭いので、本文の表示領域を広く取る */
+  .transcript-scroll {
+    height: calc(100dvh - var(--header-h) - var(--player-h) - 150px);
+    min-height: 260px;
+  }
+
+  /* プレイヤー：シークバーを独立した行にして1画面幅へ収める */
+  .player { gap: var(--space-2); padding-left: var(--space-3); padding-right: var(--space-3); }
+  .player input[type=range] { order: -1; flex: 1 1 100%; }
+  .player .t .tot { display: none; }
+  .player .play { width: 34px; height: 34px; }
+  .player .skip { padding: 4px 8px; }
+
+  /* 要約：プリセットは説明を畳んで2列に。生成結果までの距離を縮める */
+  .summary-controls { position: static; padding: var(--space-3); gap: var(--space-3); }
+  .preset-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+  .preset-item { padding: 8px 10px; }
+  .preset-item span { display: none; }
+  .summary-output { padding: var(--space-4); }
+
+  /* 辞書の置換ルールは縦積みにする */
+  .kv-row { grid-template-columns: 1fr auto; grid-template-areas: 'from del' 'to del' 'opt del'; gap: var(--space-2); }
+  .kv-row > *:nth-child(1) { grid-area: from; }
+  .kv-row > .arrow { display: none; }
+  .kv-row > *:nth-child(3) { grid-area: to; }
+  .kv-row > *:nth-child(4) { grid-area: opt; }
+  .kv-row > *:nth-child(5) { grid-area: del; align-self: start; }
+
+  .modal .content { padding: var(--space-4); }
+  .modal footer { flex-wrap: wrap; }
+  .toasts { left: var(--space-3); right: var(--space-3); bottom: var(--space-3); }
+  .toast { max-width: none; }
+}
+
+/* 端末を横向きにしたときは本文をさらに広く */
+@media (max-width: 900px) and (orientation: landscape) {
+  .transcript-scroll { height: calc(100dvh - var(--header-h) - var(--player-h) - 90px); }
 }
