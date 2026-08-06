@@ -4,8 +4,7 @@
 （議事録・復命書・要点抽出など）へ切り替えられるローカルWebアプリです。
 
 仕様書 v1.0 に基づく実装で、Phase 1〜4（MVP／話者と要約／長時間対応／体験の作り込み）まで
-を含みます。ローカル起動のほか、コンテナ1台でクラウドに置いてスマートフォンから
-使うこともできます（§2.5）。
+を含みます。手元のPCで動かしたまま Tailscale 経由でスマートフォンから使うこともできます（§2.5）。
 
 ```
 ブラウザ（素のHTML/CSS/JS・ビルド不要）
@@ -103,25 +102,94 @@ APIキーは `.env` にのみ置かれ、フロントエンドへは一切渡り
 
 ---
 
-## 2.5 スマートフォンから使う（クラウド配置）
+## 2.5 スマートフォンから使う
 
-フロントとAPIを1プロセスで配信する構成なので、**コンテナ1台をどこかに置けば
-そのままスマホのブラウザから使えます**。ffmpeg 同梱の `Dockerfile` を用意しています。
+フロントとAPIを1プロセスで配信する構成なので、スマホからも同じ画面がそのまま使えます。
+やり方は2つあります。
 
-### 公開する前に
+| | 費用 | PCの電源 | 向いている場合 |
+|---|---|---|---|
+| **A. 手元のPC + Tailscale** | 無料 | 必要 | 個人利用。**音声がクラウドのディスクに残らない** |
+| **B. コンテナをクラウドへ** | 月1,000円程度〜 | 不要 | いつでも使いたい、PCを起動しておけない |
 
-- **Basic認証を必ず設定してください。** `AUTH_USER` と `AUTH_PASSWORD` の両方を
-  設定すると、画面・API・SSE・音声配信のすべてに認証がかかります。
-  `REQUIRE_AUTH=true` にしておくと、認証が未設定のままではサーバが起動しません
-  （各デプロイ設定では既定で有効にしてあります）。
-- **HTTPSが前提です。** Basic認証は資格情報を平文で送ります。Fly.io / Render は
-  HTTPSが自動で付きます。自前のVPSではリバースプロキシで終端してください。
-- 音声・文字起こし・要約はサーバのディスクに残ります。**業務上の機微な音声は
-  取り扱わない**という運用ルールは、クラウドに置く場合はより重要になります。
+---
 
-### Fly.io（推奨）
+### A. 手元のPC + Tailscale（推奨）
 
-永続ボリュームが使えて東京リージョンがあります。
+PCとスマホを同じ仮想LAN（tailnet）に入れて直接つなぎます。公開URLを持たないので、
+録音データが第三者のサーバーに置かれることがありません。
+Tailscale の Personal プランは無料です。
+
+**1. Tailscale をPCとスマホの両方に入れて、同じアカウントでログインする**
+
+```bash
+# macOS
+brew install --cask tailscale
+# Linux
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+スマホは App Store / Google Play から Tailscale アプリを入れてログインします。
+
+**2. 管理画面で HTTPS 証明書を有効にする**
+
+[Tailscale 管理コンソール](https://login.tailscale.com/admin/dns) の DNS ページで
+**MagicDNS** と **HTTPS Certificates** を有効にします。これは見た目の問題ではなく、
+**完了通知（Notification API）とクリップボードコピーがHTTPSでしか動かない**ためです。
+
+**3. サーバを起動して tailnet へ公開する**
+
+```bash
+npm run dev                    # 別のターミナルで起動したままにする
+tailscale serve --bg 8787      # tailnet 内にHTTPSで公開する
+```
+
+`tailscale serve` は tailnet からの通信を `127.0.0.1:8787` へ中継します。
+**`HOST` は既定の `127.0.0.1` のままにしてください。** `0.0.0.0` にすると
+同じWi-Fiにいる他の端末からも直接届いてしまい、わざわざ Tailscale を使う意味が薄れます。
+
+起動時に、スマホで開くURLがログに出ます。
+
+```
+✔ http://localhost:8787 を開いてください
+✔ スマホからは https://macbook.tail1234.ts.net （Tailscale・HTTPS）
+```
+
+**4. スマホでそのURLを開く**
+
+以上です。tailnet の外からは一切見えません。
+
+**公開をやめるとき**
+
+```bash
+tailscale serve --bg=false 8787   # 公開を解除
+tailscale serve status            # 現在の設定を確認
+```
+
+> ⚠️ `tailscale funnel` は**インターネット全体**へ公開するコマンドです。
+> 本ツールでは使わないでください。使う場合は必ず `AUTH_USER` / `AUTH_PASSWORD` を設定してください。
+
+**Basic認証について**
+
+tailnet 内に閉じているので必須ではありませんが、設定しておけば端末を紛失したときの
+保険になります。`.env` に `AUTH_USER` と `AUTH_PASSWORD` を書けば有効になります。
+
+**PCがスリープすると使えません。** 常時使いたい場合は B を検討してください。
+
+---
+
+### B. コンテナをクラウドへ置く
+
+ffmpeg 同梱の `Dockerfile` を用意しています。**公開する前に必ず認証を設定してください。**
+
+- `AUTH_USER` と `AUTH_PASSWORD` の両方を設定すると、画面・API・SSE・音声配信の
+  すべてに Basic 認証がかかります。
+- `REQUIRE_AUTH=true` にしておくと、認証が未設定のままではサーバが起動しません
+  （同梱のデプロイ設定では既定で有効です）。
+- Basic認証は資格情報を平文で送るため **HTTPSが前提**です。Fly.io / Render は自動で付きます。
+
+**Fly.io**（東京リージョン・永続ボリュームあり。Launch $5/月＋ボリューム約$1.5/月）
 
 ```bash
 fly launch --no-deploy --copy-config      # fly.toml の app 名を自分のものへ書き換える
@@ -132,25 +200,18 @@ fly secrets set \
   AUTH_USER=yourname \
   AUTH_PASSWORD='長めのパスフレーズ'
 fly deploy
-fly open
 ```
 
 ボリューム10GBは、前処理後の音声（1時間あたり約10MB）で約1,000時間分に相当します。
 
-### Render
+**Render** — `render.yaml` を Blueprint として読み込み、ダッシュボードで各キーを入力します。
+永続ディスクは有料プランが必要です（**無料プランはディスクを付けられず、再起動で
+データが消える**ため使えません）。
 
-`render.yaml` を Blueprint として読み込み、ダッシュボードで `AUTH_USER` /
-`AUTH_PASSWORD` / 各APIキーを入力します。永続ディスクは有料プランが必要です。
+**VPS・自宅サーバ** — `docker compose up -d --build`。前段に HTTPS を終端する
+リバースプロキシ（Caddy / Nginx + Let's Encrypt など）を置いてください。
 
-### VPS・自宅サーバ（Docker Compose）
-
-```bash
-cp .env.example .env    # APIキーと AUTH_USER / AUTH_PASSWORD を記入
-docker compose up -d --build
-```
-
-前段に HTTPS を終端するリバースプロキシ（Caddy / Nginx + Let's Encrypt /
-Cloudflare Tunnel など）を置いてください。
+---
 
 ### ホーム画面に追加する
 
@@ -159,16 +220,16 @@ Android Chrome は「アプリをインストール」で、単独アプリの�
 アイコンを変えたい場合は `tools/make-icons.mjs` を編集して `node tools/make-icons.mjs`
 を実行してください。
 
-なお **iOS では、ホーム画面に追加したときだけ完了通知（Notification API）が届きます**。
-ブラウザのタブから開いている間は通知が出ません。
+**iOS では、ホーム画面に追加したときだけ完了通知が届きます。** ブラウザのタブから
+開いている間は通知が出ません。
 
 ### スマホで使う際の注意
 
 - **アップロードは回線速度に依存します。** 1時間の録音は元ファイルで数十〜数百MBに
-  なるため、モバイル回線ではWi-Fiより時間がかかります（前処理による圧縮はサーバ側で
-  行うため、送信するのは元ファイルです）。
-- アップロード中は画面を閉じないでください。送信が終わったあとの前処理・文字起こしは
-  サーバ側で継続するので、画面を閉じても問題ありません。
+  なるため、モバイル回線ではWi-Fiより時間がかかります（圧縮はサーバ側で行うので、
+  送信するのは元ファイルです）。
+- アップロード中は画面を閉じないでください。送信後の前処理・文字起こしはサーバ側で
+  継続するので、画面を閉じても問題ありません。
 - 画面をロックするとSSEの接続は切れますが、再度開くと進捗の履歴から復元します。
 
 ---
@@ -348,7 +409,7 @@ npm test pipeline     # 個別スイート（pipeline / chunking / summarize / u
 | `pipeline` | アップロード → 前処理 → 文字起こし → 辞書 → 編集 → 出力 → 削除 |
 | `chunking` | 無音検出・分割計画・切り出し・重複除去・話者ラベル対応付け |
 | `summarize` | ストリーミング・プロンプトキャッシュ・階層要約・中間要約の再利用 |
-| `deploy` | Basic認証の適用範囲、ヘルスチェック、PWAアイコンの配信 |
+| `deploy` | Basic認証の適用範囲、ヘルスチェック、PWAアイコンの配信、Tailscale検出 |
 | `ui` | 実ブラウザ操作（仮想スクロール・検索・リネーム・編集・シーク・要約表示） |
 
 `ui` は Playwright が必要です（`npm i -D playwright && npx playwright install chromium`）。
@@ -362,7 +423,8 @@ npm test pipeline     # 個別スイート（pipeline / chunking / summarize / u
 - **業務上の機微な音声は取り扱わない**ことを運用ルールとしてください。
 - 外部APIを前提とするため、閉域網（LGWAN等）では動作しません。
 - 対応ブラウザは最新の Chrome / Edge / Safari（デスクトップ・モバイルとも）です。
-- 公開する場合は Basic認証とHTTPSを必ず有効にしてください（§2.5）。
+- インターネットへ公開する場合は Basic認証とHTTPSを必ず有効にしてください（§2.5-B）。
+  Tailscale 経由（§2.5-A）なら公開URLを持たないため、この心配はありません。
 
 ---
 

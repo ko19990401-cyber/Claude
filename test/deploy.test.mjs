@@ -125,4 +125,59 @@ try {
   local.child.kill();
 }
 
+// --- Tailscale 検出（スマホからのアクセス案内）------------------------------
+// 本物の tailscale が無い環境でも検証できるよう、スタブをPATHの先頭に置く。
+const stubDir = path.join(DATA, 'bin');
+fs.mkdirSync(stubDir, { recursive: true });
+const stub = path.join(stubDir, 'tailscale');
+fs.writeFileSync(stub, `#!/bin/sh
+if [ "$1" = "status" ]; then
+  echo '{"Self":{"DNSName":"macbook.tail1234.ts.net.","TailscaleIPs":["100.101.102.103"]}}'
+  exit 0
+fi
+if [ "$1" = "serve" ]; then
+  if [ -n "$STUB_SERVE" ]; then
+    echo "https://macbook.tail1234.ts.net (tailnet only)"
+    echo "|-- / proxy http://127.0.0.1:${PORT}"
+    exit 0
+  fi
+  echo "No serve config" >&2
+  exit 1
+fi
+exit 1
+`);
+fs.chmodSync(stub, 0o755);
+
+const { detectTailnet } = await import('../server/lib/tailscale.js');
+const originalPath = process.env.PATH;
+process.env.PATH = `${stubDir}:${originalPath}`;
+
+try {
+  delete process.env.STUB_SERVE;
+  const notServed = await detectTailnet(PORT);
+  check('Tailscale を検出しつつ serve 未設定を見分ける',
+    notServed?.dns === 'macbook.tail1234.ts.net' && notServed.served === false && notServed.url === null,
+    notServed?.dns);
+
+  process.env.STUB_SERVE = '1';
+  const served = await detectTailnet(PORT);
+  check('tailscale serve 設定済みならHTTPSのURLを割り出す',
+    served?.served === true && served.url === 'https://macbook.tail1234.ts.net', served?.url);
+
+  // ポートが違えば自分の serve ではない
+  const otherPort = await detectTailnet(PORT + 100);
+  check('別ポートの serve 設定は自分のものと誤認しない', otherPort?.served === false);
+} finally {
+  process.env.PATH = originalPath;
+  delete process.env.STUB_SERVE;
+}
+
+check('Tailscale が無い環境では何もしない（起動を妨げない）',
+  await (async () => {
+    process.env.PATH = '/nonexistent';
+    const r = await detectTailnet(PORT);
+    process.env.PATH = originalPath;
+    return r === null;
+  })());
+
 process.exit(finish() ? 1 : 0);

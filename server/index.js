@@ -8,6 +8,7 @@ import { listEngines } from './asr/index.js';
 import { checkFfmpeg } from './lib/ffmpeg.js';
 import { log } from './lib/logger.js';
 import { resumeJobs } from './lib/pipeline.js';
+import { detectTailnet } from './lib/tailscale.js';
 import { ensureDirs } from './lib/store.js';
 import { jobsRoute } from './routes/jobs.js';
 import { miscRoute } from './routes/misc.js';
@@ -92,8 +93,17 @@ async function main() {
   const resumed = await resumeJobs();
   if (resumed) log.info(`未完了ジョブ ${resumed} 件を確認しました`);
 
-  serve({ fetch: app.fetch, port: config.port, hostname: config.host }, ({ port }) => {
+  serve({ fetch: app.fetch, port: config.port, hostname: config.host }, async ({ port }) => {
     log.ok(`http://localhost:${port} を開いてください`);
+
+    // Tailscale 経由でスマホから使えるなら、そのURLも案内する
+    const tailnet = await detectTailnet(port);
+    if (tailnet?.served) {
+      log.ok(`スマホからは ${tailnet.url} （Tailscale・HTTPS）`);
+    } else if (tailnet) {
+      log.info(`Tailscale を検出しました（${tailnet.dns}）`);
+      log.info(`  tailscale serve --bg ${port}  を実行するとスマホから使えます`);
+    }
     log.info('─'.repeat(64));
   });
 }
