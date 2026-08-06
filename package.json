@@ -1,0 +1,25 @@
+{
+  "name": "koe-note",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "長時間音声の文字起こし・要約ツール（ローカルWebアプリ）",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "setup": "node tools/setup.mjs",
+    "dev": "node server/index.js",
+    "share": "node tools/share.mjs",
+    "start": "node server/index.js",
+    "doctor": "node server/doctor.js",
+    "test": "node test/run.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "@hono/node-server": "^1.13.7",
+    "busboy": "^1.6.0",
+    "dotenv": "^16.4.7",
+    "hono": "^4.6.14"
+  }
+}

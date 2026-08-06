@@ -1,0 +1,43 @@
+# Render 用の設定（Blueprint）。
+# ダッシュボードから「New > Blueprint」でこのリポジトリを指定する。
+# 永続ディスクは有料プランが必要。
+services:
+  - type: web
+    name: koe-note
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: singapore
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: PORT
+        value: 8787
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /data
+      - key: ASR_PROVIDER
+        value: elevenlabs
+      - key: ASR_LANGUAGE
+        value: ja
+      - key: SUMMARY_MODEL
+        value: claude-opus-5
+      - key: SUMMARY_EFFORT
+        value: medium
+      - key: USD_JPY
+        value: 150
+      - key: REQUIRE_AUTH
+        value: true
+      # 以下はダッシュボードで値を入力する（sync: false）
+      - key: AUTH_USER
+        sync: false
+      - key: AUTH_PASSWORD
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

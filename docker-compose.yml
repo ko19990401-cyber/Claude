@@ -1,0 +1,31 @@
+# VPS・自宅サーバ向け。
+#   cp .env.example .env   # APIキーと AUTH_USER / AUTH_PASSWORD を記入
+#   docker compose up -d --build
+#
+# インターネットへ公開する場合は、前段に HTTPS を終端するリバースプロキシ
+# （Caddy / Nginx + Let's Encrypt / Cloudflare Tunnel など）を置いてください。
+# Basic認証は平文で資格情報を送るため、HTTPS が前提です。
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8787"
+      DATA_DIR: /data
+      REQUIRE_AUTH: "true"
+    volumes:
+      - data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  data:

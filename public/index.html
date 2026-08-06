@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>音声文字起こし・要約ツール</title>
+
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#b4522c" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f1f23" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="文字起こし">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+</head>
+<body>
+  <header class="appbar">
+    <h1><span class="logo-dot"></span><a href="#/">音声文字起こし・要約</a></h1>
+    <div class="grow"></div>
+    <button class="btn btn-ghost btn-sm" id="nav-glossary"><span aria-hidden="true">⚙</span><span class="label">用語辞書</span></button>
+    <button class="btn btn-ghost btn-sm" id="nav-home"><span aria-hidden="true">＋</span><span class="label">新規</span></button>
+  </header>
+
+  <main id="app"></main>
+  <div class="toasts" id="toasts"></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
