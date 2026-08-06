@@ -8,6 +8,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "setup": "node tools/setup.mjs",
     "dev": "node server/index.js",
     "share": "node tools/share.mjs",
     "start": "node server/index.js",

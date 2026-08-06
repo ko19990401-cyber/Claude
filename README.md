@@ -33,15 +33,36 @@ ASR API（話者分離対応）   Claude API（要約・整形）
 
 ```bash
 npm install
-cp .env.example .env     # APIキーを記入する
-npm run doctor           # ffmpeg とAPIキーの設定を確認する
+npm run setup            # 対話形式で初期設定
 npm run dev              # → http://localhost:8787
 ```
 
+`npm run setup` が次をまとめて行います。
+
+1. Node.js のバージョン確認
+2. ffmpeg の導入（macOS。Homebrew が無ければ導入するか尋ねます）
+3. `.env` の作成
+4. APIキーの入力（取得ページをブラウザで開き、貼り付けた値を `.env` へ保存）
+5. Tailscale の導入（スマホからも使う場合）
+
+**アカウント作成・支払い登録・ブラウザでのログインは代行できません。** その段階に
+来たら手順を案内して止まるので、画面の指示に従ってください。設定済みの項目は
+飛ばすので、途中で止まっても何度実行しても構いません。
+
 スマートフォンからも使う場合は `npm run dev` の代わりに `npm run share` を使います（§2.5-A）。
+
+<details>
+<summary>手動で設定する場合</summary>
+
+```bash
+cp .env.example .env     # APIキーを記入する
+npm run doctor           # ffmpeg とAPIキーの設定を確認する
+```
 
 `npm run doctor` は起動前チェックです。ffmpeg の有無、各APIキーの設定状況、データ
 ディレクトリの作成可否をまとめて表示します。
+
+</details>
 
 APIキーは `.env` にのみ置かれ、フロントエンドへは一切渡りません（`.gitignore` 済み）。
 
@@ -434,6 +455,7 @@ npm test pipeline     # 個別スイート（pipeline / chunking / summarize / u
 | `chunking` | 無音検出・分割計画・切り出し・重複除去・話者ラベル対応付け |
 | `summarize` | ストリーミング・プロンプトキャッシュ・階層要約・中間要約の再利用 |
 | `deploy` | Basic認証の適用範囲、ヘルスチェック、PWAアイコンの配信、Tailscale検出 |
+| `setup` | `.env` の書き換えが既存設定を壊さないこと、非対話モードでの状態報告 |
 | `share` | `npm run share` の正常系と異常系（未導入・HTTPS未有効・後片付け） |
 | `ui` | 実ブラウザ操作（仮想スクロール・検索・リネーム・編集・シーク・要約表示） |
 
