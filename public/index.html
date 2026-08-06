@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>音声文字起こし・要約ツール</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎙️</text></svg>">
+</head>
+<body>
+  <header class="appbar">
+    <h1><span class="logo-dot"></span><a href="#/">音声文字起こし・要約</a></h1>
+    <div class="grow"></div>
+    <button class="btn btn-ghost btn-sm" id="nav-glossary">⚙ 用語辞書</button>
+    <button class="btn btn-ghost btn-sm" id="nav-home">＋ 新規</button>
+  </header>
+
+  <main id="app"></main>
+  <div class="toasts" id="toasts"></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
