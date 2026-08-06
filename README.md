@@ -132,7 +132,12 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 ```
 
-スマホは App Store / Google Play から Tailscale アプリを入れてログインします。
+macOS はインストール後に **Tailscale.app を一度起動してログイン**してください。
+コマンドはアプリの中（`/Applications/Tailscale.app/Contents/MacOS/Tailscale`）にあり
+PATH に載りませんが、`npm run share` はそこも探すのでPATHの設定は不要です。
+
+スマホは App Store / Google Play から Tailscale アプリを入れ、**PCと同じアカウント**で
+ログインします。
 
 **2. 管理画面で HTTPS 証明書を有効にしておく**
 

@@ -11,6 +11,7 @@ import { execFile, spawn } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { resolveTailscaleBin } from '../server/lib/tailscale.js';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,18 +24,22 @@ const fail = (m) => console.error(`${C.r}✘${C.x} ${m}`);
 const note = (m) => console.log(`  ${C.d}${m}${C.x}`);
 
 const INSTALL = {
-  darwin: 'brew install --cask tailscale',
+  darwin: 'brew install --cask tailscale （インストール後、Tailscale.app を一度起動してログインしてください）',
   linux: 'curl -fsSL https://tailscale.com/install.sh | sh',
   win32: 'winget install tailscale.tailscale',
 };
 
+// macOS はアプリバンドル内にコマンドがあるため、PATH以外も探す
+const BIN = resolveTailscaleBin();
+
 async function tailscale(args, options = {}) {
-  return run('tailscale', args, { timeout: 10000, ...options });
+  return run(BIN, args, { timeout: 10000, ...options });
 }
 
 async function main() {
   // --- 1. Tailscale が入っているか ---------------------------------------
   try {
+    if (!BIN) throw new Error('not found');
     await tailscale(['version']);
   } catch {
     fail('Tailscale が見つかりません。');
@@ -49,7 +54,7 @@ async function main() {
     warn('Tailscale にログインしていません。ブラウザで認証します…');
     await new Promise((resolve) => {
       // 認証URLを表示するため、そのまま端末へ出す
-      spawn('tailscale', ['up'], { stdio: 'inherit' }).on('close', resolve);
+      spawn(BIN, ['up'], { stdio: 'inherit' }).on('close', resolve);
     });
     status = await readStatus();
   }
@@ -95,7 +100,7 @@ async function main() {
   }
 
   // --- 5. tailnet へ公開（フォアグラウンド）-------------------------------
-  serve = spawn('tailscale', ['serve', String(PORT)], { stdio: ['ignore', 'pipe', 'pipe'] });
+  serve = spawn(BIN, ['serve', String(PORT)], { stdio: ['ignore', 'pipe', 'pipe'] });
   let serveError = '';
   serve.stderr.on('data', (d) => { serveError += d; });
   serve.stdout.on('data', () => {}); // 「Press Ctrl+C to exit」等は握りつぶす
