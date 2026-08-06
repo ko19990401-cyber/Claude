@@ -38,6 +38,8 @@ npm run doctor           # ffmpeg とAPIキーの設定を確認する
 npm run dev              # → http://localhost:8787
 ```
 
+スマートフォンからも使う場合は `npm run dev` の代わりに `npm run share` を使います（§2.5-A）。
+
 `npm run doctor` は起動前チェックです。ffmpeg の有無、各APIキーの設定状況、データ
 ディレクトリの作成可否をまとめて表示します。
 
@@ -132,40 +134,57 @@ sudo tailscale up
 
 スマホは App Store / Google Play から Tailscale アプリを入れてログインします。
 
-**2. 管理画面で HTTPS 証明書を有効にする**
+**2. 管理画面で HTTPS 証明書を有効にしておく**
 
 [Tailscale 管理コンソール](https://login.tailscale.com/admin/dns) の DNS ページで
-**MagicDNS** と **HTTPS Certificates** を有効にします。これは見た目の問題ではなく、
-**完了通知（Notification API）とクリップボードコピーがHTTPSでしか動かない**ためです。
+**MagicDNS** と **HTTPS Certificates** を有効にします（既定で有効なことも多く、
+無効なら次の手順でエラーとして案内されます）。
 
-**3. サーバを起動して tailnet へ公開する**
+HTTPSであることは見た目の問題ではありません。**完了通知（Notification API）と
+クリップボードコピーは、HTTPSでないと動きません。**
+
+**3. `npm run share` を実行する**
 
 ```bash
-npm run dev                    # 別のターミナルで起動したままにする
-tailscale serve --bg 8787      # tailnet 内にHTTPSで公開する
+npm run share
 ```
 
-`tailscale serve` は tailnet からの通信を `127.0.0.1:8787` へ中継します。
-**`HOST` は既定の `127.0.0.1` のままにしてください。** `0.0.0.0` にすると
-同じWi-Fiにいる他の端末からも直接届いてしまい、わざわざ Tailscale を使う意味が薄れます。
-
-起動時に、スマホで開くURLがログに出ます。
+これ1つで、Tailscale の状態確認 → サーバ起動 → tailnet への公開 まで行います。
 
 ```
+✔ Tailscale: macbook.tail1234.ts.net
 ✔ http://localhost:8787 を開いてください
-✔ スマホからは https://macbook.tail1234.ts.net （Tailscale・HTTPS）
+
+✔ スマホからは  https://macbook.tail1234.ts.net
+  このPCからは  http://localhost:8787
+  Ctrl+C で公開を終了します（tailnet の外からは見えません）
 ```
 
 **4. スマホでそのURLを開く**
 
 以上です。tailnet の外からは一切見えません。
+**Ctrl+C を押せば公開設定も一緒に消える**ので、止め忘れが起きません。
 
-**公開をやめるとき**
+未ログインなら認証を促し、Tailscale が入っていなければ導入コマンドを案内します。
+HTTPS証明書が未設定で公開に失敗した場合は、管理コンソールのURLを表示します。
+
+<details>
+<summary>手動で操作する場合</summary>
 
 ```bash
-tailscale serve --bg=false 8787   # 公開を解除
-tailscale serve status            # 現在の設定を確認
+npm run dev                    # 別のターミナルで起動したままにする
+tailscale serve 8787           # フォアグラウンド公開。Ctrl+C で解除される
+tailscale serve --bg 8787      # 常時公開したい場合はこちら
+tailscale serve --bg 8787 off  # --bg の公開を解除する
+tailscale serve status         # 現在の設定を確認
+tailscale serve reset          # すべての公開設定を消す
 ```
+
+`tailscale serve` は tailnet からの通信を `127.0.0.1:8787` へ中継します。
+**`HOST` は既定の `127.0.0.1` のままにしてください。** `0.0.0.0` にすると
+同じWi-Fiにいる他の端末からも直接届いてしまい、Tailscale を使う意味が薄れます。
+
+</details>
 
 > ⚠️ `tailscale funnel` は**インターネット全体**へ公開するコマンドです。
 > 本ツールでは使わないでください。使う場合は必ず `AUTH_USER` / `AUTH_PASSWORD` を設定してください。
@@ -410,6 +429,7 @@ npm test pipeline     # 個別スイート（pipeline / chunking / summarize / u
 | `chunking` | 無音検出・分割計画・切り出し・重複除去・話者ラベル対応付け |
 | `summarize` | ストリーミング・プロンプトキャッシュ・階層要約・中間要約の再利用 |
 | `deploy` | Basic認証の適用範囲、ヘルスチェック、PWAアイコンの配信、Tailscale検出 |
+| `share` | `npm run share` の正常系と異常系（未導入・HTTPS未有効・後片付け） |
 | `ui` | 実ブラウザ操作（仮想スクロール・検索・リネーム・編集・シーク・要約表示） |
 
 `ui` は Playwright が必要です（`npm i -D playwright && npx playwright install chromium`）。

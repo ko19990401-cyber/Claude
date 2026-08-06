@@ -96,13 +96,16 @@ async function main() {
   serve({ fetch: app.fetch, port: config.port, hostname: config.host }, async ({ port }) => {
     log.ok(`http://localhost:${port} を開いてください`);
 
-    // Tailscale 経由でスマホから使えるなら、そのURLも案内する
-    const tailnet = await detectTailnet(port);
-    if (tailnet?.served) {
-      log.ok(`スマホからは ${tailnet.url} （Tailscale・HTTPS）`);
-    } else if (tailnet) {
-      log.info(`Tailscale を検出しました（${tailnet.dns}）`);
-      log.info(`  tailscale serve --bg ${port}  を実行するとスマホから使えます`);
+    // Tailscale 経由でスマホから使えるなら、そのURLも案内する。
+    // npm run share から起動された場合は、そちらが案内するので黙る。
+    if (!process.env.SHARE_MANAGED) {
+      const tailnet = await detectTailnet(port);
+      if (tailnet?.served) {
+        log.ok(`スマホからは ${tailnet.url} （Tailscale・HTTPS）`);
+      } else if (tailnet) {
+        log.info(`Tailscale を検出しました（${tailnet.dns}）`);
+        log.info('  npm run share を使うと、スマホから使える状態まで自動で用意します');
+      }
     }
     log.info('─'.repeat(64));
   });
